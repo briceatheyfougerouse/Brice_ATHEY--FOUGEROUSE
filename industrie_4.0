@@ -1,1 +1,51 @@
+% MATLAB - Création de données simulées pour Industrie 4.0 (prédiction défaillance)
 
+num_samples = 500;
+num_sensors = 10;
+
+% Génération aléatoire des données capteurs (80% normal, 20% défaillance)
+X_normal = randn(round(0.8*num_samples), num_sensors)+ 10;
+X_failure = randn(round(0.2*num_samples), num_sensors) + 11.5;
+
+% Fusion des données
+X = [X_normal; X_failure];
+Y = [zeros(size(X,1)-size(X_failure,1),1); ones(size(X_failure,1),1)];
+ 
+% Sauvegarde des données
+save('industrie4_donnees.mat', 'X', 'Y');
+
+% Affichage
+fprintf('Données simulées sauvegardées dans industrie4_donnees.mat\n');
+%% Chargement des données simulées
+load('industrie4_donnees.mat');
+
+%% Séparation données entraînement et test
+cv = cvpartition(size(X,1),'HoldOut',0.3);
+X_train = X(training(cv),:);
+Y_train = Y(training(cv),:);
+X_test = X(test(cv),:);
+Y_test = Y(test(cv),:);
+
+%% Création du réseau neuronal
+net = patternnet([15 10]); % Deux couches cachées (15 et 10 neurones)
+
+% Division des données internes (entraînement/validation)
+net.divideParam.trainRatio = 0.7;
+net.divideParam.valRatio = 0.15;
+net.divideParam.testRatio = 0.15;
+
+%% Entraînement du réseau neuronal
+[net,tr] = train(net,X',Y');
+
+%% Prédiction
+Y_pred = net(X_test');
+Y_pred_classes = round(Y_pred);
+
+%% Évaluation des performances
+accuracy = sum(Y_pred_classes' == Y_test) / length(Y_test);
+fprintf('Précision du modèle neuronal : %.2f%%\n', accuracy*100);
+
+% Matrice de confusion
+figure;
+plotconfusion(Y_test', Y_pred);
+title('Matrice de confusion - Prédiction défaillance (Industrie 4.0)');
